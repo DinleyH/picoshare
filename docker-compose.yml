@@ -1,0 +1,13 @@
+services:
+  picoshare-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4001:4001"
+    volumes:
+      - .:/app
+    environment:
+      - PS_SHARED_SECRET=somepassword
+      - PORT=4001
+      - PS_VERSION=dev

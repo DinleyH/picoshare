@@ -1,0 +1,27 @@
+# .air.toml - Config for air, a live-reloader for Go apps.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# Script to run to build the application
+cmd = "./dev-scripts/build-backend dev"
+
+# The binary that the build script creates
+bin = "bin/picoshare-dev"
+
+# File extensions to watch for changes
+include_ext = ["go", "html", "js", "css"]
+
+# Directories to exclude from watching
+exclude_dir = ["tmp", "e2e", "vendor"]
+
+# Rebuild and restart the app on change
+full_bin = "./bin/picoshare-dev -db data/store.db"
+
+[log]
+# Show timestamps in the log output
+time = true
+
+[misc]
+# Delete the tmp directory on exit
+clean_on_exit = true
