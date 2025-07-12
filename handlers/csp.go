@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mtlynch/picoshare/v2/build" // Import the build package
 	"github.com/mtlynch/picoshare/v2/random"
 )
 
@@ -20,6 +21,20 @@ func enforceContentSecurityPolicy(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nonce := base64.StdEncoding.EncodeToString(random.Bytes(16))
 
+		// Default script-src values.
+		scriptSrcValues := []string{
+			"'self'",
+		}
+
+		// In development, we need 'unsafe-inline' for air's live-reloader.
+		// In production, we use a much stricter nonce-based policy.
+		// The browser IGNORES 'unsafe-inline' if a nonce is present, so we must use one or the other.
+		if build.IsDevBuild {
+			scriptSrcValues = append(scriptSrcValues, "'unsafe-inline'")
+		} else {
+			scriptSrcValues = append(scriptSrcValues, "'nonce-"+nonce+"'")
+		}
+
 		type cspDirective struct {
 			name   string
 			values []string
@@ -32,11 +47,8 @@ func enforceContentSecurityPolicy(next http.Handler) http.Handler {
 				},
 			},
 			{
-				name: "script-src",
-				values: []string{
-					"'self'",
-					"'nonce-" + nonce + "'",
-				},
+				name:   "script-src",
+				values: scriptSrcValues,
 			},
 			{
 				name: "style-src-elem",
