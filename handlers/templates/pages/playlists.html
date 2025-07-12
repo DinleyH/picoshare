@@ -1,0 +1,79 @@
+{{ define "content" }}
+  <div class="is-flex is-justify-content-space-between is-align-items-center">
+    <h1 class="title">Playlists</h1>
+    <a class="button is-primary is-success" id="create-playlist-btn">Create</a>
+  </div>
+
+  <div class="table-container mt-5">
+    <table class="table is-fullwidth is-striped">
+      <thead>
+        <tr>
+          <th>Playlist name</th>
+          <th>Number of videos</th>
+          <th>Date created</th>
+          <th class="has-text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Playlists }}
+        <tr>
+          <td>{{ .Name }}</td>
+          <td>0</td>
+          <td>{{ .CreationTime.Format "2006-01-02" }}</td>
+          <td>
+            <div class="field is-grouped is-justify-content-flex-end">
+              <p class="control">
+                <button class="button is-link" aria-label="Edit">
+                  <i class="fas fa-edit"></i>
+                </button>
+              </p>
+              <p class="control">
+                <button class="button is-info" aria-label="Copy">
+                  <i class="fa-solid fa-copy"></i>
+                </button>
+              </p>
+            </div>
+          </td>
+        </tr>
+        {{ else }}
+        <tr>
+          <td colspan="4" class="has-text-centered">No playlists yet. Click "Create" to get started!</td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+{{ end }}
+
+{{ define "script-tags" }}
+<script type="module" nonce="{{ .CspNonce }}">
+  const createPlaylistBtn = document.getElementById("create-playlist-btn");
+  const tableBody = document.querySelector(".table tbody");
+
+  createPlaylistBtn.addEventListener("click", async () => {
+    const playlistName = prompt("Enter playlist name:");
+    if (playlistName) {
+      try {
+        const response = await fetch('/api/playlists', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: playlistName }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create playlist');
+        }
+        
+        // Reload the page to show the new playlist at the top of the list
+        window.location.reload();
+
+      } catch (error) {
+        console.error(error);
+        alert('Failed to create playlist. Please try again.');
+      }
+    }
+  });
+</script>
+{{ end }}

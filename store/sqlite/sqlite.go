@@ -8,6 +8,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/mtlynch/picoshare/v2/picoshare"
+	"github.com/rs/xid"
 )
 
 const (
@@ -66,6 +67,51 @@ func NewWithChunkSize(path string, chunkSize uint64, optimizeForLitestream bool)
 		chunkSize: chunkSize,
 	}
 }
+
+func (s *Store) CreatePlaylist(name string) (picoshare.Playlist, error) {
+	playlist := picoshare.Playlist{
+		ID:           xid.New().String(),
+		Name:         name,
+		CreationTime: time.Now(),
+	}
+
+	_, err := s.ctx.Exec(
+		"INSERT INTO playlists (id, name, creation_time) VALUES (?, ?, ?)",
+		playlist.ID,
+		playlist.Name,
+		playlist.CreationTime.Format(time.RFC3339),
+	)
+	if err != nil {
+		return picoshare.Playlist{}, err
+	}
+
+	return playlist, nil
+}
+
+func (s *Store) GetPlaylists() ([]picoshare.Playlist, error) {
+	rows, err := s.ctx.Query("SELECT id, name, creation_time FROM playlists ORDER BY creation_time DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var playlists []picoshare.Playlist
+	for rows.Next() {
+		var p picoshare.Playlist
+		var creationTime string
+		if err := rows.Scan(&p.ID, &p.Name, &creationTime); err != nil {
+			return nil, err
+		}
+		p.CreationTime, err = time.Parse(time.RFC3339, creationTime)
+		if err != nil {
+			return nil, err
+		}
+		playlists = append(playlists, p)
+	}
+
+	return playlists, nil
+}
+
 
 func formatExpirationTime(et picoshare.ExpirationTime) string {
 	return formatTime(time.Time(et))

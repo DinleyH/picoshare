@@ -12,6 +12,8 @@ func (s *Server) routes() {
 	authenticatedApis.HandleFunc("/entry", s.entryPost()).Methods(http.MethodPost)
 	authenticatedApis.HandleFunc("/entry/{id}", s.entryPut()).Methods(http.MethodPut)
 	authenticatedApis.HandleFunc("/entry/{id}", s.entryDelete()).Methods(http.MethodDelete)
+	// Add this line, using the correct variable name "authenticatedApis"
+	authenticatedApis.HandleFunc("/playlists", s.playlistsPost()).Methods(http.MethodPost)
 	authenticatedApis.HandleFunc("/guest-links", s.guestLinksPost()).Methods(http.MethodPost)
 	authenticatedApis.HandleFunc("/guest-links/{id}", s.guestLinksDelete()).Methods(http.MethodDelete)
 	authenticatedApis.HandleFunc("/guest-links/{id}/enable", s.guestLinksEnableDisable()).Methods(http.MethodPut)
@@ -47,6 +49,8 @@ func (s *Server) routes() {
 	authenticatedViews.Use(enforceContentSecurityPolicy)
 	authenticatedViews.HandleFunc("/information", s.systemInformationGet()).Methods(http.MethodGet)
 	authenticatedViews.HandleFunc("/files", s.fileIndexGet()).Methods(http.MethodGet)
+	// Add this line for the playlist page view
+	authenticatedViews.HandleFunc("/playlists", s.playlistsGet()).Methods(http.MethodGet)
 	authenticatedViews.HandleFunc("/files/{id}/downloads", s.fileDownloadsGet()).Methods(http.MethodGet)
 	authenticatedViews.HandleFunc("/files/{id}/edit", s.fileEditGet()).Methods(http.MethodGet)
 	authenticatedViews.HandleFunc("/files/{id}/info", s.fileInfoGet()).Methods(http.MethodGet)

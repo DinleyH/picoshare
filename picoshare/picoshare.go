@@ -39,6 +39,12 @@ type (
 	}
 )
 
+type Playlist struct {
+	ID           string
+	Name         string
+	CreationTime time.Time
+}
+
 // Treat a distant expiration time as sort of a sentinel value signifying a "never expire" option.
 var NeverExpire = ExpirationTime(time.Date(2999, time.December, 31, 0, 0, 0, 0, time.UTC))
 
