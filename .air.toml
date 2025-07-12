@@ -3,25 +3,33 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-# Script to run to build the application
+# Script to run to build the application.
 cmd = "./dev-scripts/build-backend dev"
 
-# The binary that the build script creates
+# The binary that the build script creates.
 bin = "bin/picoshare-dev"
 
-# File extensions to watch for changes
+# File extensions to watch for changes.
 include_ext = ["go", "html", "js", "css"]
 
-# Directories to exclude from watching
+# Directories to exclude from watching.
 exclude_dir = ["tmp", "e2e", "vendor"]
 
-# Rebuild and restart the app on change
-full_bin = "./bin/picoshare-dev -db data/store.db"
+# Command to run the app. Air will run this and proxy requests to it.
+cmd_after_build = "./bin/picoshare-dev -db data/store.db"
 
 [log]
-# Show timestamps in the log output
+# Show timestamps in the log output.
 time = true
 
+[proxy]
+# Enable the proxy, which is required for browser live-reloading.
+enabled = true
+# The port your Go application listens on inside the container.
+app_port = 4001
+# The port the air proxy will listen on. We'll expose this port.
+proxy_port = 4001
+
 [misc]
-# Delete the tmp directory on exit
+# Delete the tmp directory on exit.
 clean_on_exit = true

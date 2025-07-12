@@ -4,10 +4,12 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
+      # Map the host port to the air proxy port.
       - "4001:4001"
     volumes:
       - .:/app
     environment:
       - PS_SHARED_SECRET=somepassword
+      # This MUST match the app_port in your .air.toml file.
       - PORT=4001
       - PS_VERSION=dev
