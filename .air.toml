@@ -24,7 +24,7 @@ time = true
 
 [proxy]
 # Enable the proxy, which is required for browser live-reloading.
-enabled = true
+enabled = false
 # The port your Go application will listen on inside the container.
 app_port = 8080
 # The port the air proxy will listen on. We'll expose this port.

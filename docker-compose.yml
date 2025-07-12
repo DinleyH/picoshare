@@ -11,5 +11,5 @@ services:
     environment:
       - PS_SHARED_SECRET=somepassword
       # This MUST match the app_port in your .air.toml file.
-      - PORT=8080
+      - PORT=4001
       - PS_VERSION=dev
