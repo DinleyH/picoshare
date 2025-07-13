@@ -7,6 +7,8 @@ import (
 
 type (
 	EntryID        string
+	PlaylistID     string
+	PlaylistName   string
 	Filename       string
 	ContentType    string
 	ExpirationTime time.Time
@@ -40,6 +42,12 @@ type (
 )
 
 type Playlist struct {
+	ID           string
+	Name         string
+	CreationTime time.Time
+}
+
+type PlaylistData struct {
 	ID           string
 	Name         string
 	CreationTime time.Time

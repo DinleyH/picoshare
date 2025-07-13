@@ -25,4 +25,9 @@ type Store interface {
 	UpdateSettings(picoshare.Settings) error
 	CreatePlaylist(name string) (picoshare.Playlist, error)
 	GetPlaylists() ([]picoshare.Playlist, error)
+	GetPlaylistsData(id picoshare.PlaylistID) (picoshare.PlaylistData, error)
+	UpdatePlaylistName(id picoshare.PlaylistID, name string) error
+	AddEntryToPlaylist(playlistID picoshare.PlaylistID, entryID picoshare.EntryID) error
+	GetPlaylistEntries(playlistID picoshare.PlaylistID) ([]picoshare.UploadMetadata, error)
+	RemoveEntryFromPlaylist(playlistID picoshare.PlaylistID, entryID picoshare.EntryID) error
 }
