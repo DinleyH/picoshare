@@ -1,3 +1,5 @@
+
+
 {{ define "content" }}
   <div class="is-flex is-justify-content-space-between is-align-items-center">
     <h1 class="title">Playlists</h1>
@@ -28,10 +30,14 @@
                 </button>
               </p>
               <p class="control">
-                <button class="button is-info" aria-label="Copy">
-                  <i class="fa-solid fa-copy"></i>
-                </button>
-              </p>
+                  <button
+                    class="button is-info"
+                    aria-label="Copy"
+                    playlist-id="{{ .ID }}"
+                  >
+                    <i class="fa-solid fa-copy"></i>
+                  </button>
+                </p>
             </div>
           </td>
         </tr>
@@ -49,6 +55,26 @@
 <script type="module" nonce="{{ .CspNonce }}">
   const createPlaylistBtn = document.getElementById("create-playlist-btn");
   const tableBody = document.querySelector(".table tbody");
+    import { copyToClipboard } from "/js/lib/clipboard.js";
+    import { makePlaylistShortLink } from "/js/lib/links.js";
+
+     document.querySelectorAll('[aria-label="Copy"]').forEach((copyBtn) => {
+      copyBtn.addEventListener("click", () => {
+        const playlistId = copyBtn.getAttribute("playlist-id");
+        const playlistLink = makePlaylistShortLink(playlistId);
+
+        copyToClipboard(playlistLink)
+          .then(() =>
+            document
+              .querySelector("snackbar-notifications")
+              .addInfoMessage("Copied link")
+          )
+          .catch((error) => {
+            document.getElementById("error-message").innerText = error;
+            showElement(errorContainer);
+          });
+      });
+    });
 
   createPlaylistBtn.addEventListener("click", async () => {
     const playlistName = prompt("Enter playlist name:");
