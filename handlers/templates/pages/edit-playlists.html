@@ -1,3 +1,56 @@
+{{ define "style-tags" }}
+<style nonce="{{ .CspNonce }}">
+#upload-progress-container {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  max-width: 300px;
+  z-index: 9999;
+}
+
+.upload-progress {
+  background: white;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+table.uniform-column-layout {
+  table-layout: fixed;
+  width: 100%;
+}
+
+table.uniform-column-layout th:nth-child(1),
+table.uniform-column-layout td:nth-child(1) {
+  width: 50%; /* Filename */
+}
+
+table.uniform-column-layout th:nth-child(2),
+table.uniform-column-layout td:nth-child(2) {
+  width: 15%; /* Size */
+}
+
+table.uniform-column-layout th:nth-child(3),
+table.uniform-column-layout td:nth-child(3) {
+  width: 15%; /* Expires */
+}
+
+table.uniform-column-layout th:nth-child(4),
+table.uniform-column-layout td:nth-child(4) {
+  width: 20%; /* Actions */
+  white-space: nowrap;
+}
+
+.uniform-column-layout .buttons {
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+}
+</style>
+{{ end }}
+
 {{ define "content" }}
   <div class="is-flex is-justify-content-space-between is-align-items-center">
     <div class="is-flex is-align-items-flex-start">
@@ -9,11 +62,14 @@
         </span>
       </a>
     </div>
-    <a class="button is-primary is-success" id="upload-to-playlist-btn">Upload Video</a>
+    <a class="button is-primary is-success" id="upload-to-playlist-btn">Upload Video(s)</a>
+    <input type="file" id="upload-file-input" accept="video/*" multiple hidden />
   </div>
   
+  <div id="upload-progress-container" class="mt-4"></div>
+
   <h2 class="subtitle">Videos on this playlist</h2>
-  <table class="table is-fullwidth is-striped is-hoverable">
+  <table class="table is-fullwidth is-striped is-hoverable uniform-column-layout">
     <thead>
       <tr>
         <th>Filename</th>
@@ -33,8 +89,8 @@
         <td>
           <div class="buttons is-right are-small">
             <a class="button is-danger js-remove-from-playlist" data-entry-id="{{.ID}}" title="Remove from playlist">
-              <span class="icon"><i class="fas fa-trash"></i></span>
-            </a>
+            <span class="icon is-small"><i class="fas fa-minus-circle"></i></span>
+            </a>    
             <a class="button" href="/files/{{.ID}}/edit" title="Edit file details">
               <span class="icon"><i class="fas fa-pencil-alt"></i></span>
             </a>
@@ -56,7 +112,7 @@
 
   <h2 class="subtitle">Files not on playlist</h2>
 
-  <table class="table is-fullwidth is-striped is-hoverable">
+  <table class="table is-fullwidth is-striped is-hoverable uniform-column-layout">
     <thead>
       <tr>
         <th>Filename</th>
@@ -84,10 +140,11 @@
         </td>
         <td>
           <div class="buttons is-right are-small">
-            <a class="button is-success" data-fileId="{{.ID}}" title="Add to playlist">
-              <span class="icon">
-                <i class="fas fa-plus"></i>
-              </span>
+            <a class="button is-success" data-fileid="{{.ID}}" title="Add to playlist">
+                <span class="icon"><i class="fas fa-plus"></i></span>
+            </a>
+           <a class="button is-danger js-delete-file" data-file-id="{{.ID}}" title="Delete file">
+                <span class="icon"><i class="fas fa-trash"></i></span>
             </a>
             <a class="button" href="/files/{{.ID}}/edit" title="Edit file details">
               <span class="icon">
@@ -117,177 +174,357 @@
 
 {{ define "script-tags" }}
 <script type="module" nonce="{{ .CspNonce }}">
-    import { copyToClipboard } from "/js/lib/clipboard.js";
-    import { makeShortLink } from "/js/lib/links.js";
+import { copyToClipboard } from "/js/lib/clipboard.js";
+import { makeShortLink } from "/js/lib/links.js";
 
-    // --- 1. SET UP ALL ELEMENTS AND EVENT HANDLERS ONCE THE PAGE LOADS ---
-    document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
 
-        // --- Global Elements ---
-        const playlistFilesBody = document.getElementById('playlist-files-body');
-        const availableFilesBody = document.getElementById('available-files-body');
-        const playlistNameDisplay = document.getElementById('playlist-name-display');
-        const playlistId = playlistNameDisplay.getAttribute('data-playlistid');
-        const snackbar = document.querySelector("snackbar-notifications");
+    const uploadBtn = document.getElementById('upload-to-playlist-btn');
+    const uploadInput = document.getElementById('upload-file-input');
+    const playlistFilesBody = document.getElementById('playlist-files-body');
+    const availableFilesBody = document.getElementById('available-files-body');
+    const playlistNameDisplay = document.getElementById('playlist-name-display');
+    const playlistId = playlistNameDisplay.getAttribute('data-playlistid');
+    const snackbar = document.querySelector("snackbar-notifications");
 
-        // --- 2. CORE LOGIC TO MOVE ROWS BETWEEN TABLES ---
-        const moveTableRow = (row, fromTable, toTable) => {
-            const fileId = row.querySelector('[data-entry-id], [data-fileid]').dataset.entryId || row.querySelector('[data-entry-id], [data-fileid]').dataset.fileid;
-            const actionCell = row.querySelector('td:last-child .buttons');
-            
-            if (fromTable.id === 'available-files-body') {
-                // --- Moving from AVAILABLE to PLAYLIST ---
-                const addButton = actionCell.querySelector('.is-success');
-                addButton.outerHTML = `
-                    <a class="button is-danger js-remove-from-playlist" data-entry-id="${fileId}" title="Remove from playlist">
-                        <span class="icon"><i class="fas fa-trash"></i></span>
-                    </a>
-                `;
-                const newButton = row.querySelector('.js-remove-from-playlist');
-                newButton.addEventListener('click', handleRemoveClick);
-            } else {
-                // --- Moving from PLAYLIST to AVAILABLE ---
-                const removeButton = actionCell.querySelector('.is-danger');
-                removeButton.outerHTML = `
-                    <a class="button is-success" data-fileid="${fileId}" title="Add to playlist">
-                        <span class="icon"><i class="fas fa-plus"></i></span>
-                    </a>
-                `;
-                const newButton = row.querySelector('.is-success');
-                newButton.addEventListener('click', handleAddClick);
-            }
-            
-            toTable.prepend(row);
-        };
+    // Add progress container
+    const progressContainer = document.createElement('div');
+    progressContainer.id = "upload-progress-container";
+    progressContainer.className = "mt-4";
+    uploadBtn.insertAdjacentElement('afterend', progressContainer);
+
+    uploadBtn.addEventListener('click', () => {
+        uploadInput.value = '';
+        uploadInput.click();
+    });
+
+    uploadInput.addEventListener('change', async () => {
+        const files = Array.from(uploadInput.files);
+        if (!files.length) return;
+
+        progressContainer.innerHTML = '';
+
+        for (const file of files) {
+           const progressWrapper = document.createElement('div');
+            progressWrapper.className = 'upload-progress';
+
+            const label = document.createElement('p');
+            label.textContent = `Uploading: ${file.name}`;
+            progressWrapper.appendChild(label);
+
+            const progress = document.createElement('progress');
+            progress.className = 'progress is-primary is-small';
+            progress.max = 100;
+            progress.value = 0;
+            progressWrapper.appendChild(progress);
+
+            progressContainer.appendChild(progressWrapper);
 
 
-        // --- 3. EVENT HANDLER FOR ADDING A FILE ---
-        const handleAddClick = async (event) => {
-            event.preventDefault();
-            const button = event.currentTarget;
-            const row = button.closest('tr');
-            const fileId = button.dataset.fileid;
-
-            button.classList.add('is-loading');
             try {
-                const response = await fetch(`/api/playlists/${playlistId}/entries`, {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const entryId = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', `/api/entry?expiration=2999-12-31T00:00:00Z`);
+                    xhr.responseType = 'json';
+
+                    xhr.upload.onprogress = (event) => {
+                        if (event.lengthComputable) {
+                            progress.value = (event.loaded / event.total) * 100;
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(xhr.response.id);
+                        } else {
+                            reject(new Error(`Upload failed: ${xhr.statusText}`));
+                        }
+                    };
+
+                    xhr.onerror = () => reject(new Error('Upload error'));
+                    xhr.send(formData);
+                });
+
+                const addRes = await fetch(`/api/playlists/${playlistId}/entries`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ file_id: fileId }),
+                    body: JSON.stringify({ file_id: entryId })
                 });
-                if (!response.ok) throw new Error('Server responded with an error');
-                
-                moveTableRow(row, availableFilesBody, playlistFilesBody);
-                snackbar.addInfoMessage("File added to playlist");
-            } catch (error) {
-                console.error('Error adding file:', error);
-                snackbar.addErrorMessage("Could not add file to playlist.");
-                button.classList.remove('is-loading');
-            }
-        };
+
+                if (!addRes.ok) {
+                    console.error('Failed to add to playlist:', entryId);
+                    continue;
+                }
+
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td><a href="/-${entryId}/${file.name}" target="_blank">${file.name}</a></td>
+                    <td>${(file.size / 1024 / 1024).toFixed(2)} MB</td>
+                    <td>Never</td>
+                    <td>
+                        <div class="buttons is-right are-small">
+                            <a class="button is-danger js-remove-from-playlist" data-entry-id="${entryId}" title="Remove from playlist">
+                                <span class="icon"><i class="fas fa-trash"></i></span>
+                            </a>
+                            <a class="button" href="/files/${entryId}/edit" title="Edit file details">
+                                <span class="icon"><i class="fas fa-pencil-alt"></i></span>
+                            </a>
+                            <p class="control">
+                                <button class="button is-info" aria-label="Copy" pico-entry-id="${entryId}">
+                                    <i class="fa-solid fa-copy"></i>
+                                </button>
+                            </p>
+                        </div>
+                    </td>
+                `;
+                playlistFilesBody.prepend(newRow);
+
+                setTimeout(() => progressWrapper.remove(), 2000);
 
 
-        // --- 4. EVENT HANDLER FOR REMOVING A FILE ---
-        const handleRemoveClick = async (event) => {
-            event.preventDefault();
-            const button = event.currentTarget;
-            const row = button.closest('tr');
-            const entryId = button.dataset.entryId;
+                const removeBtn = newRow.querySelector('.js-remove-from-playlist');
+                removeBtn.addEventListener('click', handleRemoveClick);
 
-            button.classList.add('is-loading');
-            try {
-                const response = await fetch(`/api/playlists/${playlistId}/entries/${entryId}`, {
-                    method: 'DELETE',
+                const copyBtn = newRow.querySelector('[aria-label="Copy"]');
+                copyBtn.addEventListener("click", () => {
+                    const fileId = copyBtn.getAttribute("pico-entry-id");
+                    const shortLink = makeShortLink(fileId);
+                    copyToClipboard(shortLink)
+                        .then(() => snackbar.addInfoMessage("Copied link"))
+                        .catch((error) => {
+                            document.getElementById("error-message").innerText = error;
+                            showElement(errorContainer);
+                        });
                 });
-                if (!response.ok) throw new Error('Failed to remove file');
 
-                moveTableRow(row, playlistFilesBody, availableFilesBody);
-                snackbar.addInfoMessage("File removed from playlist");
-            } catch (error) {
-                console.error('Error removing file:', error);
-                snackbar.addErrorMessage("Could not remove file.");
-                button.classList.remove('is-loading');
+            } catch (err) {
+                console.error('Upload failed:', err);
+                label.textContent = `Failed: ${file.name}`;
+                progress.classList.add('is-danger');
             }
-        };
+        }
+    });
 
-        // --- 5. INITIAL ATTACHMENT OF ALL EVENT LISTENERS ---
+    const handleFileDeleteClick = async (event) => {
+    event.preventDefault();
+    const button = event.currentTarget;
+    const fileId = button.dataset.fileId;
+    const row = button.closest("tr");
 
-        // Attach to all "Add" buttons
-        document.querySelectorAll('a.is-success[data-fileid]').forEach(button => {
-            button.addEventListener('click', handleAddClick);
+    button.classList.add("is-loading");
+
+    try {
+        const res = await fetch(`/api/entry/${fileId}`, {
+            method: 'DELETE'
         });
-        
-        // Attach to all "Remove" buttons
-        document.querySelectorAll('.js-remove-from-playlist').forEach(button => {
-            button.addEventListener('click', handleRemoveClick);
-        });
 
-        // Attach to all "Copy" buttons (existing functionality)
-        document.querySelectorAll('[aria-label="Copy"]').forEach((copyBtn) => {
-            copyBtn.addEventListener("click", () => {
-                const fileId = copyBtn.getAttribute("pico-entry-id");
-                const shortLink = makeShortLink(fileId);
-                copyToClipboard(shortLink)
-                    .then(() => snackbar.addInfoMessage("Copied link"))
-                    .catch((error) => {
-                        document.getElementById("error-message").innerText = error;
-                        showElement(errorContainer);
-                    });
+        if (!res.ok) throw new Error("Failed to delete file");
+
+        row.remove(); // remove the row from the table
+        snackbar.addInfoMessage("File deleted");
+    } catch (err) {
+        console.error("Error deleting file:", err);
+        snackbar.addErrorMessage("Could not delete file.");
+        button.classList.remove("is-loading");
+    }
+};
+
+const moveTableRow = (row, fromTable, toTable) => {
+    const fileId = row.querySelector('[data-entry-id], [data-fileid]').dataset.entryId || row.querySelector('[data-entry-id], [data-fileid]').dataset.fileid;
+    const actionCell = row.querySelector('td:last-child .buttons');
+
+    if (fromTable.id === 'available-files-body') {
+        // Moving TO playlist
+        // 1. Replace "Add to playlist" with "Remove from playlist"
+        actionCell.innerHTML = `
+            <a class="button is-danger js-remove-from-playlist" data-entry-id="${fileId}" title="Remove from playlist">
+                <span class="icon is-small"><i class="fas fa-minus-circle"></i></span>
+            </a>
+            <a class="button" href="/files/${fileId}/edit" title="Edit file details">
+                <span class="icon"><i class="fas fa-pencil-alt"></i></span>
+            </a>
+            <p class="control">
+                <button class="button is-info" aria-label="Copy" pico-entry-id="${fileId}">
+                    <i class="fa-solid fa-copy"></i>
+                </button>
+            </p>
+        `;
+
+        row.querySelector('.js-remove-from-playlist').addEventListener('click', handleRemoveClick);
+        attachCopyButton(row);
+    } else {
+        // Moving TO available files
+        // 1. Replace "Remove from playlist" with "Add to playlist"
+        actionCell.innerHTML = `
+            <a class="button is-success" data-fileid="${fileId}" title="Add to playlist">
+                <span class="icon"><i class="fas fa-plus"></i></span>
+            </a>
+            <a class="button is-danger js-delete-file" data-file-id="${fileId}" title="Delete file">
+                <span class="icon"><i class="fas fa-trash"></i></span>
+            </a>
+            <a class="button" href="/files/${fileId}/edit" title="Edit file details">
+                <span class="icon"><i class="fas fa-pencil-alt"></i></span>
+            </a>
+            <p class="control">
+                <button class="button is-info" aria-label="Copy" pico-entry-id="${fileId}">
+                    <i class="fa-solid fa-copy"></i>
+                </button>
+            </p>
+        `;
+
+        row.querySelector('.is-success').addEventListener('click', handleAddClick);
+        row.querySelector('.js-delete-file').addEventListener('click', handleFileDeleteClick);
+        attachCopyButton(row);
+    }
+
+    toTable.prepend(row);
+};
+
+
+    const handleAddClick = async (event) => {
+        event.preventDefault();
+        const button = event.currentTarget;
+        const row = button.closest('tr');
+        const fileId = button.dataset.fileid;
+
+        button.classList.add('is-loading');
+        try {
+            const response = await fetch(`/api/playlists/${playlistId}/entries`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_id: fileId }),
             });
-        });
+            if (!response.ok) throw new Error('Server error');
 
+            moveTableRow(row, availableFilesBody, playlistFilesBody);
+            snackbar.addInfoMessage("File added to playlist");
+        } catch (error) {
+            console.error('Error adding file:', error);
+            snackbar.addErrorMessage("Could not add file to playlist.");
+        } finally {
+            button.classList.remove('is-loading');
+        }
+    };
 
-        // --- 6. INLINE PLAYLIST NAME EDITING LOGIC (EXISTING FUNCTIONALITY) ---
-        const nameInput = document.getElementById('playlist-name-input');
-        const editBtn = document.getElementById('edit-playlist-name-btn');
+    const handleRemoveClick = async (event) => {
+        event.preventDefault();
+        const button = event.currentTarget;
+        const row = button.closest('tr');
+        const entryId = button.dataset.entryId;
 
-        if (!playlistNameDisplay || !nameInput || !editBtn) return;
+        button.classList.add('is-loading');
+        try {
+            const response = await fetch(`/api/playlists/${playlistId}/entries/${entryId}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) throw new Error('Server error');
 
-        const startEditing = () => {
-            playlistNameDisplay.classList.add('is-hidden');
-            nameInput.classList.remove('is-hidden');
-            nameInput.focus();
-            nameInput.select();
-        };
+            moveTableRow(row, playlistFilesBody, availableFilesBody);
+            snackbar.addInfoMessage("File removed from playlist");
+        } catch (error) {
+            console.error('Error removing file:', error);
+            snackbar.addErrorMessage("Could not remove file.");
+        } finally {
+            button.classList.remove('is-loading');
+        }
+    };
 
-        const stopEditing = () => {
-            nameInput.classList.add('is-hidden');
-            playlistNameDisplay.classList.remove('is-hidden');
-        };
+    document.querySelectorAll('a.is-success[data-fileid]').forEach(button => {
+        button.addEventListener('click', handleAddClick);
+    });
 
-        const saveName = async () => {
-            const originalName = playlistNameDisplay.textContent.trim();
-            const newName = nameInput.value.trim();
-            if (originalName === newName || newName === '') {
-                nameInput.value = originalName;
-                stopEditing();
-                return;
-            }
-            try {
-                const response = await fetch(`/api/playlists/${playlistId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newName }),
+    document.querySelectorAll('.js-remove-from-playlist').forEach(button => {
+        button.addEventListener('click', handleRemoveClick);
+    });
+
+    document.querySelectorAll('.js-delete-file').forEach(button => {
+    button.addEventListener('click', handleFileDeleteClick);
+});
+
+    document.querySelectorAll('[aria-label="Copy"]').forEach(copyBtn => {
+        copyBtn.addEventListener("click", () => {
+            const fileId = copyBtn.getAttribute("pico-entry-id");
+            const shortLink = makeShortLink(fileId);
+            copyToClipboard(shortLink)
+                .then(() => snackbar.addInfoMessage("Copied link"))
+                .catch((error) => {
+                    document.getElementById("error-message").innerText = error;
+                    showElement(errorContainer);
                 });
-                if (!response.ok) throw new Error('Failed to update playlist name');
-                playlistNameDisplay.textContent = newName;
-            } catch (error) {
-                console.error(error);
-                nameInput.value = originalName;
-            } finally {
-                stopEditing();
-            }
-        };
-
-        editBtn.addEventListener('click', startEditing);
-        nameInput.addEventListener('blur', saveName);
-        nameInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') saveName();
-            if (event.key === 'Escape') {
-                nameInput.value = playlistNameDisplay.textContent;
-                stopEditing();
-            }
         });
     });
+
+    const nameInput = document.getElementById('playlist-name-input');
+    const editBtn = document.getElementById('edit-playlist-name-btn');
+
+    if (!playlistNameDisplay || !nameInput || !editBtn) return;
+
+    const startEditing = () => {
+        playlistNameDisplay.classList.add('is-hidden');
+        nameInput.classList.remove('is-hidden');
+        nameInput.focus();
+        nameInput.select();
+    };
+
+    const stopEditing = () => {
+        nameInput.classList.add('is-hidden');
+        playlistNameDisplay.classList.remove('is-hidden');
+    };
+
+    const saveName = async () => {
+        const originalName = playlistNameDisplay.textContent.trim();
+        const newName = nameInput.value.trim();
+        if (originalName === newName || newName === '') {
+            nameInput.value = originalName;
+            stopEditing();
+            return;
+        }
+        try {
+            const response = await fetch(`/api/playlists/${playlistId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName }),
+            });
+            if (!response.ok) throw new Error('Failed to update playlist name');
+            playlistNameDisplay.textContent = newName;
+        } catch (error) {
+            console.error(error);
+            nameInput.value = originalName;
+        } finally {
+            stopEditing();
+        }
+    };
+
+    editBtn.addEventListener('click', startEditing);
+    nameInput.addEventListener('blur', saveName);
+    nameInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') saveName();
+        if (event.key === 'Escape') {
+            nameInput.value = playlistNameDisplay.textContent;
+            stopEditing();
+        }
+    });
+});
+
+function attachCopyButton(row) {
+    const copyBtn = row.querySelector('[aria-label="Copy"]');
+    if (!copyBtn) return;
+
+    copyBtn.addEventListener("click", () => {
+        const fileId = copyBtn.getAttribute("pico-entry-id");
+        const shortLink = makeShortLink(fileId);
+        copyToClipboard(shortLink)
+            .then(() => snackbar.addInfoMessage("Copied link"))
+            .catch((error) => {
+                document.getElementById("error-message").innerText = error;
+                showElement(errorContainer);
+            });
+    });
+}
+
 </script>
+
 {{ end }}
