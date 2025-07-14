@@ -65,7 +65,9 @@ table.uniform-column-layout td:nth-child(4) {
     <a class="button is-primary is-success" id="upload-to-playlist-btn">Upload Video(s)</a>
     <input type="file" id="upload-file-input" accept="video/*" multiple hidden />
   </div>
-  
+    <div class="is-flex is-justify-content-space-between is-align-items-left">
+        <a class="button is-primary is-info" id="copy-playlist-btn">Copy playlist URL</a>
+    </div>
   <div id="upload-progress-container" class="mt-4"></div>
 
   <h2 class="subtitle">Videos on this playlist</h2>
@@ -175,10 +177,12 @@ table.uniform-column-layout td:nth-child(4) {
 {{ define "script-tags" }}
 <script type="module" nonce="{{ .CspNonce }}">
 import { copyToClipboard } from "/js/lib/clipboard.js";
-import { makeShortLink } from "/js/lib/links.js";
+import { makeShortLink, makePlaylistShortLink } from "/js/lib/links.js";
+
+
 
 document.addEventListener('DOMContentLoaded', () => {
-
+    const copyPlaylistUrl = document.getElementById("copy-playlist-btn");
     const uploadBtn = document.getElementById('upload-to-playlist-btn');
     const uploadInput = document.getElementById('upload-file-input');
     const playlistFilesBody = document.getElementById('playlist-files-body');
@@ -197,6 +201,21 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadInput.value = '';
         uploadInput.click();
     });
+
+     copyPlaylistUrl.addEventListener("click", () => {
+        const playlistLink = makePlaylistShortLink(playlistId);
+
+        copyToClipboard(playlistLink)
+          .then(() =>
+            document
+              .querySelector("snackbar-notifications")
+              .addInfoMessage("Copied link")
+          )
+          .catch((error) => {
+            document.getElementById("error-message").innerText = error;
+            showElement(errorContainer);
+          });
+      });
 
     uploadInput.addEventListener('change', async () => {
         const files = Array.from(uploadInput.files);
