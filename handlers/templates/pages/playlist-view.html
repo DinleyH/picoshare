@@ -1,0 +1,252 @@
+{{define "style-tags"}}
+<style>
+:root {
+    --p-bg: #f9fafb;
+    --p-surface: #ffffff;
+    --p-primary: #485fc7;
+    --p-border: #e5e7eb;
+    --p-text-main: #111827;
+    --p-text-light: #6b7280;
+    --p-hover: #f3f4f6;
+    --p-active: #eef2ff;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--p-bg);
+    font-family: system-ui, sans-serif;
+    margin: 0;
+}
+
+/* Centered layout with fixed max-width */
+.playlist-container {
+    display: flex;
+    gap: 2rem;
+    padding: 2rem 0;
+    max-width: 1400px;
+    margin: 0 auto;
+    align-items: flex-start;
+}
+
+/* Sidebar on right */
+.sidebar-content {
+    width: 440px;
+    flex-shrink: 0;
+}
+
+/* Video fills the remaining space */
+.main-content {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Video player box */
+.video-player-box {
+    position: relative;
+    padding-top: 56.25%;
+    background-color: black;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+.video-player-box video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* Title and description */
+.video-details .title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--p-text-main);
+    margin-bottom: 0.5rem;
+}
+.video-details p {
+    font-size: 0.95rem;
+    color: var(--p-text-light);
+}
+
+/* Sidebar box styling */
+.sidebar-content .box {
+    background-color: var(--p-surface);
+    border-radius: 12px;
+    border: 1px solid var(--p-border);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    padding: 1.25rem;
+}
+
+/* Sidebar title */
+.sidebar-content .title {
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--p-border);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--p-text-main);
+}
+
+/* Playlist menu scrolling */
+.playlist-menu {
+    max-height: 75vh;
+    overflow-y: auto;
+}
+.playlist-menu::-webkit-scrollbar { width: 6px; }
+.playlist-menu::-webkit-scrollbar-track { background: transparent; }
+.playlist-menu::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 10px;
+}
+
+/* Playlist items */
+.playlist-item {
+    display: flex !important;
+    align-items: center;
+    gap: 1rem;
+    padding: 10px !important;
+    border-radius: 10px;
+    transition: background-color 0.2s ease-in-out;
+    cursor: pointer;
+}
+.playlist-item:hover {
+    background-color: var(--p-hover) !important;
+}
+.playlist-item.is-active {
+    background-color: var(--p-active) !important;
+}
+
+/* Thumbnail */
+.playlist-item-thumbnail {
+    width: 100px;
+    height: 56px;
+    background-color: #e5e7eb;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--p-text-light);
+    font-size: 1rem;
+}
+.playlist-item.is-active .playlist-item-thumbnail {
+    color: var(--p-primary);
+    outline: 2px solid var(--p-primary);
+}
+
+/* Title text */
+.playlist-item-title {
+    color: var(--p-text-main);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .playlist-container {
+        flex-direction: column;
+        padding: 1rem;
+    }
+    .sidebar-content {
+        width: 100%;
+    }
+    .main-content {
+        width: 100%;
+    }
+}
+</style>
+{{end}}
+
+{{define "content"}}
+<div class="playlist-container">
+
+    <div class="main-content">
+        <div class="video-details" style="margin-bottom: 1.5rem;">
+             <h1 class="title is-4" id="video-title">{{.CurrentVideo.Filename}}</h1>
+             <p id="video-note">{{if .CurrentVideo.Note.Value}}{{.CurrentVideo.Note.Value}}{{end}}</p>
+        </div>
+
+        <div class="video-player-box">
+            <video controls autoplay name="media" id="main-video">
+                <source src="/-{{.CurrentVideo.ID}}" type="{{.CurrentVideo.ContentType}}" id="video-source">
+            </video>
+        </div>
+    </div>
+
+    <div class="sidebar-content">
+        <div class="box">
+            <h2 class="title is-5">{{.PlaylistData.Name}}</h2>
+            
+            <ul class="playlist-menu menu-list">
+                {{range .PlaylistFiles}}
+                <li>
+                    <a href="/pl-{{$.PlaylistData.ID}}?v={{.ID}}"
+                       class="playlist-item {{if eq .ID $.CurrentVideo.ID}}is-active{{end}}"
+                       data-video-id="{{.ID}}"
+                       data-video-url="/-{{.ID}}"
+                       data-video-type="{{.ContentType}}"
+                       data-video-title="{{.Filename}}"
+                       data-video-note="{{if .Note.Value}}{{.Note.Value}}{{end}}">
+                        
+                        <div class="playlist-item-thumbnail">
+                            <i class="fa-solid fa-play fa-lg"></i>
+                        </div>
+
+                        <div class="playlist-item-details">
+                            <span class="playlist-item-title">{{.Filename}}</span>
+                        </div>
+                    </a>
+                </li>
+                {{end}}
+            </ul>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "script-tags"}}
+<script>
+// The javascript does not need to be changed
+document.addEventListener('DOMContentLoaded', () => {
+    const playlistItems = document.querySelectorAll('#playlist-items a, .playlist-item');
+    const mainVideo = document.getElementById('main-video');
+    const videoSource = document.getElementById('video-source');
+    const videoTitle = document.getElementById('video-title');
+    const videoNote = document.getElementById('video-note');
+
+    playlistItems.forEach(item => {
+        item.addEventListener('click', function(event) {
+            event.preventDefault();
+
+            const videoId = this.dataset.videoId;
+            const videoUrl = this.dataset.videoUrl;
+            const videoType = this.dataset.videoType;
+            const title = this.dataset.videoTitle;
+            const note = this.dataset.videoNote;
+            
+            videoSource.setAttribute('src', videoUrl);
+            videoSource.setAttribute('type', videoType);
+            mainVideo.load();
+            mainVideo.play().catch(e => console.error("Autoplay was prevented.", e));
+
+            videoTitle.textContent = title;
+            videoNote.textContent = note;
+
+            const newUrl = `/pl-{{.PlaylistData.ID}}?v=${videoId}`;
+            history.pushState({path: newUrl}, '', newUrl);
+            
+            // Remove 'is-active' from all items
+            const allItems = document.querySelectorAll('.playlist-item');
+            allItems.forEach(link => link.classList.remove('is-active'));
+            // Add 'is-active' to the clicked item
+            this.classList.add('is-active');
+        });
+    });
+});
+</script>
+{{end}}

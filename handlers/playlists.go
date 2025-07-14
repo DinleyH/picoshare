@@ -233,3 +233,77 @@ func (s Server) playlistEntryPost() http.HandlerFunc {
 		w.WriteHeader(http.StatusCreated)
 	}
 }
+
+func (s Server) playlistViewGet() http.HandlerFunc {
+	// Add the new template to the list of parsed files.
+	t := parseTemplates("templates/layouts/base.html", "templates/pages/playlist-view.html")
+
+	// Define the properties required by the template.
+	type props struct {
+		commonProps
+		PlaylistData  picoshare.PlaylistData
+		PlaylistFiles []picoshare.UploadMetadata
+		CurrentVideo  picoshare.UploadMetadata
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		// The id from the URL will not have the "pl-" prefix
+		playlistID, ok := vars["id"]
+		if !ok {
+			http.Error(w, "Playlist ID is missing in URL", http.StatusBadRequest)
+			return
+		}
+
+		// Get the playlist metadata (like name, creation date)
+		playlistData, err := s.store.GetPlaylistsData(picoshare.PlaylistID(playlistID))
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Playlist not found", http.StatusNotFound)
+			} else {
+				log.Printf("failed to get playlist data for %s: %v", playlistID, err)
+				http.Error(w, "Error retrieving playlist", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		// Get all the files/videos in the playlist
+		playlistFiles, err := s.store.GetPlaylistEntries(picoshare.PlaylistID(playlistID))
+		if err != nil {
+			log.Printf("failed to get playlist entries for %s: %v", playlistID, err)
+			http.Error(w, "Error retrieving playlist entries", http.StatusInternalServerError)
+			return
+		}
+
+		// If the playlist is empty, we can't show anything.
+		if len(playlistFiles) == 0 {
+			http.Error(w, "This playlist is empty.", http.StatusNotFound)
+			return
+		}
+
+		// Default to the first video in the playlist.
+		currentVideo := playlistFiles[0]
+		// Allow overriding via query parameter, e.g., /pl-XXXX?v=YYYY
+		if videoID := r.URL.Query().Get("v"); videoID != "" {
+			for _, pf := range playlistFiles {
+				if string(pf.ID) == videoID {
+					currentVideo = pf
+					break
+				}
+			}
+		}
+
+		// Execute the template with the data.
+		p := props{
+			commonProps:   makeCommonProps("PicoShare - "+playlistData.Name, r.Context()),
+			PlaylistData:  playlistData,
+			PlaylistFiles: playlistFiles,
+			CurrentVideo:  currentVideo,
+		}
+
+		if err := t.Execute(w, p); err != nil {
+			log.Printf("failed to execute template: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+}
